@@ -15,16 +15,13 @@ parser.add_argument('--export_intrinsics', dest='export_intrinsics', action='sto
 parser.set_defaults(export_depth_images=False, export_color_images=False, export_poses=False, export_intrinsics=False)
 
 opt = parser.parse_args()
-print(opt)
 
 
 def main():
   if not os.path.exists(opt.output_path):
     os.makedirs(opt.output_path)
   # load the data
-  sys.stdout.write('loading %s...' % opt.filename)
   sd = SensorData(opt.filename)
-  sys.stdout.write('loaded!\n')
   if opt.export_depth_images:
     sd.export_depth_images(os.path.join(opt.output_path, 'depth'))
   if opt.export_color_images:

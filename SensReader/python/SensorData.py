@@ -4,6 +4,7 @@ import numpy as np
 import zlib
 import imageio
 import cv2
+from tqdm import tqdm, trange
 
 COMPRESSION_TYPE_COLOR = {-1:'unknown', 0:'raw', 1:'png', 2:'jpeg'}
 COMPRESSION_TYPE_DEPTH = {-1:'unknown', 0:'raw_ushort', 1:'zlib_ushort', 2:'occi_ushort'}
@@ -68,7 +69,7 @@ class SensorData:
       self.depth_shift =  struct.unpack('f', f.read(4))[0]
       num_frames =  struct.unpack('Q', f.read(8))[0]
       self.frames = []
-      for i in range(num_frames):
+      for i in trange(num_frames, desc='loading data from ' + filename):
         frame = RGBDFrame()
         frame.load(f)
         self.frames.append(frame)
@@ -77,8 +78,7 @@ class SensorData:
   def export_depth_images(self, output_path, image_size=None, frame_skip=1):
     if not os.path.exists(output_path):
       os.makedirs(output_path)
-    print 'exporting', len(self.frames)//frame_skip, ' depth frames to', output_path
-    for f in range(0, len(self.frames), frame_skip):
+    for f in trange(0, len(self.frames), frame_skip, desc='exporting depth frames to ' + output_path):
       depth_data = self.frames[f].decompress_depth(self.depth_compression_type)
       depth = np.fromstring(depth_data, dtype=np.uint16).reshape(self.depth_height, self.depth_width)
       if image_size is not None:
@@ -89,8 +89,7 @@ class SensorData:
   def export_color_images(self, output_path, image_size=None, frame_skip=1):
     if not os.path.exists(output_path):
       os.makedirs(output_path)
-    print 'exporting', len(self.frames)//frame_skip, 'color frames to', output_path
-    for f in range(0, len(self.frames), frame_skip):
+    for f in trange(0, len(self.frames), frame_skip, desc='exporting color frames to ' + output_path):
       color = self.frames[f].decompress_color(self.color_compression_type)
       if image_size is not None:
         color = cv2.resize(color, (image_size[1], image_size[0]), interpolation=cv2.INTER_NEAREST)
@@ -106,16 +105,18 @@ class SensorData:
   def export_poses(self, output_path, frame_skip=1):
     if not os.path.exists(output_path):
       os.makedirs(output_path)
-    print 'exporting', len(self.frames)//frame_skip, 'camera poses to', output_path
-    for f in range(0, len(self.frames), frame_skip):
+    for f in trange(0, len(self.frames), frame_skip, desc='exporting camera poses to ' + output_path):
       self.save_mat_to_file(self.frames[f].camera_to_world, os.path.join(output_path, str(f) + '.txt'))
 
 
   def export_intrinsics(self, output_path):
     if not os.path.exists(output_path):
       os.makedirs(output_path)
-    print 'exporting camera intrinsics to', output_path
-    self.save_mat_to_file(self.intrinsic_color, os.path.join(output_path, 'intrinsic_color.txt'))
-    self.save_mat_to_file(self.extrinsic_color, os.path.join(output_path, 'extrinsic_color.txt'))
-    self.save_mat_to_file(self.intrinsic_depth, os.path.join(output_path, 'intrinsic_depth.txt'))
-    self.save_mat_to_file(self.extrinsic_depth, os.path.join(output_path, 'extrinsic_depth.txt'))
+    intrinsics = [
+      (self.intrinsic_color, 'intrinsic_color.txt'),
+      (self.extrinsic_color, 'extrinsic_color.txt'),
+      (self.intrinsic_depth, 'intrinsic_depth.txt'),
+      (self.extrinsic_depth, 'extrinsic_depth.txt'),
+    ]
+    for intrinsic, filename in tqdm(intrinsics, desc='exporting camera intrinsics to ' + output_path):
+      self.save_mat_to_file(intrinsic, os.path.join(output_path, filename))
